@@ -45,11 +45,10 @@ jobs:
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
-        if [ "${{ runner.os }}" == "Windows" ]; then
-            .\bootstrap-vcpkg.bat
-         else
-            ./bootstrap-vcpkg.sh
-         fi
+        if ($env:RUNNER_OS -eq "Windows") {
+          .\bootstrap-vcpkg.bat} 
+        else {
+        ./bootstrap-vcpkg.sh}
         cd..
     - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
