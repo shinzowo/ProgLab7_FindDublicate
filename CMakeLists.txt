@@ -5,11 +5,13 @@ project(dublicate_boost VERSION 0.1.0 LANGUAGES C CXX)
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME OFF) # Меняем на OFF, если используем динамическую линковку
 
-# Ищем Boost
-find_package(Boost REQUIRED COMPONENTS filesystem program_options)
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
 
 # Создаем исполняемый файл
 add_executable(dublicate_boost main.cpp)
+
+# Ищем Boost
+find_package(Boost REQUIRED COMPONENTS filesystem program_options)
 
 # Проверяем, найден ли Boost
 if(Boost_FOUND)
