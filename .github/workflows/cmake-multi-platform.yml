@@ -28,7 +28,7 @@ jobs:
             os_short: Win64
             c_compiler: gcc
             cpp_compiler: g++
-            generator: "-G \"MinGW Makefiles\""
+            generator: "MinGW Makefiles"
             cpack_type: zip
 
     steps:
@@ -56,7 +56,7 @@ jobs:
     - name: Configure CMake
       run: |
         cmake -B build \
-          ${{ matrix.generator }} \
+          -G "${{ matrix.generator }}" \
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
