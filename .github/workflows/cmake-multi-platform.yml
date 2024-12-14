@@ -1,0 +1,113 @@
+name: Build and Release Boost Project
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Release]
+        include:
+          - os: ubuntu-latest
+            os_short: Linux
+            c_compiler: gcc
+            cpp_compiler: g++
+            generator: "Unix Makefiles"
+            cpack_type: deb
+          - os: windows-latest
+            os_short: Win64
+            c_compiler: gcc
+            cpp_compiler: g++
+            generator: "-G \"MinGW Makefiles\""
+            cpack_type: zip
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Установка зависимостей для Ubuntu
+    - name: Install Dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt update
+        sudo apt install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev
+
+    # Установка MinGW и Boost для Windows
+    - name: Install Dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install mingw boost --version=1.77.0
+        echo "C:/mingw64/bin" >> $env:GITHUB_PATH
+        gcc --version
+        g++ --version
+        echo "BOOST_ROOT=C:/ProgramData/chocolatey/lib/boost/tools" >> $env:GITHUB_ENV
+
+    # Конфигурация CMake
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          ${{ matrix.generator }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DBoost_USE_STATIC_LIBS=ON \
+          -DBoost_USE_STATIC_RUNTIME=ON \
+          -DBoost_INCLUDE_DIR=${{ matrix.os == 'ubuntu-latest' && '/usr/include/boost' || 'C:/ProgramData/chocolatey/lib/boost/tools/include' }} \
+          -DBOOST_ROOT=${{ matrix.os == 'ubuntu-latest' && '/usr/include/boost' || 'C:/ProgramData/chocolatey/lib/boost/tools' }} \
+          -DBoost_FILESYSTEM_LIBRARY=Boost::filesystem \
+          -DBoost_PROGRAM_OPTIONS_LIBRARY=Boost::program_options \
+          -S ${{ github.workspace }}
+
+    # Сборка проекта
+    - name: Build Project
+      run: |
+        cmake --build build --config ${{ matrix.build_type }}
+
+    # Упаковка проекта
+    - name: Package Project
+      run: |
+        cmake --build build --target package --config ${{ matrix.build_type }}
+
+    # Создание релиза
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}-${{ matrix.os_short }}
+        release_name: Release v${{ github.run_number }}-${{ matrix.os_short }}
+        draft: false
+        prerelease: false
+
+    # Загрузка артефакта релиза
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_name: dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_content_type: application/${{ matrix.cpack_type }}
+
+
+    
+
+
+
+
+
+    
+

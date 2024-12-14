@@ -1,14 +1,15 @@
 cmake_minimum_required(VERSION 3.5.0)
 project(dublicate_boost VERSION 0.1.0 LANGUAGES C CXX)
 
-set(BOOST_ROOT "C:/boost-build")
-set(BOOST_INCLUDE_DIR "C:/boost-build/include")
+#set(BOOST_ROOT "C:/boost-build")
+#set(BOOST_INCLUDE_DIR "C:/boost-build/include")
 
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 
 #include_directories(${BOOST_ROOT})
-find_package(Boost 1.87 REQUIRED COMPONENTS filesystem program_options)
+#find_package(Boost 1.87 REQUIRED COMPONENTS filesystem program_options)
+find_package(Boost 1.87 REQUIRED COMPONENTS filesystem program_options PATHS $ENV{BOOST_ROOT} NO_DEFAULT_PATH)
 add_executable(dublicate_boost main.cpp)
 
 if(Boost_FOUND)
