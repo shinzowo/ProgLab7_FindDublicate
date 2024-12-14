@@ -1,4 +1,4 @@
-name: Build and Release Boost Project
+name: Build and Release Boost Project 
 
 on:
   push:
@@ -9,8 +9,7 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
+    permissions: write-all
 
     strategy:
       fail-fast: false
@@ -18,35 +17,41 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         build_type: [Release]
         include:
-          - os: ubuntu-latest
-            os_short: Linux
-            c_compiler: gcc
-            cpp_compiler: g++
-            generator: "Unix Makefiles"
-            cpack_type: deb
           - os: windows-latest
             os_short: Win64
             c_compiler: gcc
             cpp_compiler: g++
             generator: "MinGW Makefiles"
             cpack_type: zip
+          - os: ubuntu-latest
+            os_short: Linux
+            c_compiler: gcc
+            cpp_compiler: g++
+            cpack_type: deb
+          
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
     # Установка зависимостей для Ubuntu
-    - name: Install Dependencies (Ubuntu)
+    - name: Install Boost 1.87.0 (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt update
         sudo apt install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev
+        # Установка конкретной версии Boost 1.87.0 для Ubuntu
+        wget https://boostorg.jfrog.io/artifactory/main/release/1.87.0/source/boost_1_87_0.tar.gz
+        tar -xvzf boost_1_87_0.tar.gz
+        cd boost_1_87_0
+        ./bootstrap.sh
+        sudo ./b2 install
 
     # Установка MinGW и Boost для Windows
     - name: Install Dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        choco install mingw boost --version=1.77.0
+        choco install mingw boost --version=1.87.0
         echo "C:/mingw64/bin" >> $env:GITHUB_PATH
         gcc --version
         g++ --version
@@ -101,6 +106,7 @@ jobs:
         asset_path: ./build/${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_name: dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_content_type: application/${{ matrix.cpack_type }}
+
 
 
     
