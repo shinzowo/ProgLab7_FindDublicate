@@ -48,16 +48,27 @@ jobs:
         echo "C:/mingw64/tools/bin" >> $env:GITHUB_PATH
         gcc --version
         g++ --version
-
+    - name: Install vcpkg and Boost (static)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Клонируем репозиторий vcpkg
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        # Запуск bootstrap-скрипта для установки vcpkg
+        ./bootstrap-vcpkg.sh
+        # Устанавливаем Boost с параметром для статической сборки
+        ./vcpkg install boost-filesystem boost-program-options:x64-windows-static
+        # Добавляем vcpkg в PATH для использования CMake
+        echo "C:/vcpkg/installed/x64-windows-static/include" >> $env:GITHUB_PATH
+        echo "C:/vcpkg/installed/x64-windows-static/lib" >> $env:GITHUB_PATH
     # Configure CMake
     - name: Configure CMake
       run: >
-        cmake -B build
-        ${{ matrix.generator }}
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -S ${{ github.workspace }}
+        cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake \
+          -S ${{ github.workspace }}
 
     # Build the project and package it
     - name: Build
