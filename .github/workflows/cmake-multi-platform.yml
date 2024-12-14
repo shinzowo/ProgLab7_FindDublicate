@@ -40,56 +40,33 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-
+    
+    - name: Install vcpkg
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        /bootstrap-vcpkg.sh
+        cd..
     - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo apt update
-        sudo apt install -y libsfml-dev libgl1-mesa-dev libx11-dev cmake
-        sudo apt install -y libboost-filesystem-dev libboost-program-options-dev
+        cd vcpkg
+        ./vcpkg install boost-filesystem boost-program-options:x64-linux-static
+        echo "BOOST_DIR=/home/runner/vcpkg/installed/x64-linux" >> $GITHUB_ENV
+        cd ..
 
 
     - name: Install MinGW and Boost (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        # Установка MinGW с помощью Chocolatey
-        choco install mingw
-  
-        # Скачиваем Boost
-        choco install boost
-  
-        # Устанавливаем Boost из исходников
-        set BOOST_DIR=C:/boost
-        mkdir %BOOST_DIR%
-        cd %BOOST_DIR%
-        curl -LO https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2
-        tar -xvjf boost_1_81_0.tar.bz2
-        cd boost_1_81_0
-  
-        # Строим Boost
-        .\bootstrap.bat
-        .\b2 --build-type=complete --toolset=gcc --address-model=64 --with-filesystem --with-program_options variant=release link=static runtime-link=static threading=multi stage
-  
-        # Добавляем пути к Boost в переменные окружения
-        echo "C:/boost/boost_1_81_0" >> $env:GITHUB_PATH
-        echo "C:/boost/boost_1_81_0/stage/lib" >> $env:GITHUB_PATH
-        echo "C:/boost/boost_1_81_0" >> $env:GITHUB_PATH
-        gcc --version
-        g++ --version
-        boost_version=$(choco list --local-only boost | grep -oP '(?<=boost\sv)(\d+\.\d+\.\d+)')
-        echo "Boost version: $boost_version"
+        cd vcpkg
+        .\vcpkg install boost-filesystem boost-program-options:x64-windows-static
+        echo "BOOST_DIR=C:/vcpkg/installed/x64-windows-static" >> $GITHUB_ENV
+        cd ..
 
     - name: Configure CMake
       run: |
-        cmake -B . 
-        ${{ matrix.generator }}
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DBoost_USE_STATIC_LIBS=ON
-        -DBoost_USE_STATIC_RUNTIME=ON
-        -DCMAKE_PREFIX_PATH="C:/boost/boost_1_81_0"  # Путь к собранному Boost
-        -S ${{ github.workspace }}
+        cmake -B . ${matrix.generator} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -S ${{ github.workspace }}
         
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
@@ -115,8 +92,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./physics-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
-        asset_name: physics-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_path: ./dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_name: dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_content_type: application/${{ matrix.cpack_type }}
 
 
