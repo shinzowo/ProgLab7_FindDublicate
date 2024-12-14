@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(containers VERSION 0.1.0 LANGUAGES C CXX)
+project(dublicate_boost VERSION 0.1.0 LANGUAGES C CXX)
 
 # Устанавливаем стандарт C++
 set(CMAKE_CXX_STANDARD 20)
