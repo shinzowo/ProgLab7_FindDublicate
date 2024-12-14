@@ -12,7 +12,15 @@ jobs:
     permissions: write-all
 
     strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: false
+
+      # Set up a matrix to run the following 3 configurations:
+      # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
+      # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
+      # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
+      #
+      # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
         os: [ubuntu-latest, windows-latest]
         build_type: [Release]
@@ -25,7 +33,7 @@ jobs:
             generator: -G "MinGW Makefiles"
             cpack_type: zip
           - os: ubuntu-latest
-            os_short: linux
+            os_short: Linux
             c_compiler: gcc
             cpp_compiler: g++
             cpack_type: deb
@@ -33,47 +41,32 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Install dependencies on Ubuntu (Linux)
-    - name: Install dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake libboost-all-dev
-
-    # Install MinGW on Windows (for cross-compilation)
-    - name: Install MinGW
+    - name: Install minGW
       if: matrix.os == 'windows-latest'
       run: |
         choco install mingw
         echo "C:/mingw64/tools/bin" >> $env:GITHUB_PATH
         gcc --version
         g++ --version
-    - name: Install vcpkg and Boost (static)
-      if: matrix.os == 'windows-latest'
-      run: |
-        # Клонируем репозиторий vcpkg
-        git clone https://github.com/microsoft/vcpkg.git
-        cd vcpkg
-        .\bootstrap-vcpkg.bat
-        .\vcpkg install boost-filesystem boost-program-options:x64-windows-static
-        echo "C:/vcpkg/installed/x64-windows-static/include" >> $env:GITHUB_PATH
-        echo "C:/vcpkg/installed/x64-windows-static/lib" >> $env:GITHUB_PATH
-    # Configure CMake
+
     - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
-        cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake \
-          -S ${{ github.workspace }}
+        cmake -B .
+        ${{ matrix.generator }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
 
-    # Build the project and package it
+
     - name: Build
+      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: |
-        cmake --build build --config ${{ matrix.build_type }}
-        cmake --build build --target package --config ${{ matrix.build_type }}
+        cmake --build . --config ${{ matrix.build_type }}
+        cmake --build . --target package --config ${{ matrix.build_type }}
 
-    # Create a GitHub release
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -85,7 +78,6 @@ jobs:
         draft: false
         prerelease: false
 
-    # Upload the packaged release asset
     - name: Upload Release Asset
       id: upload-release-asset
       uses: actions/upload-release-asset@v1
@@ -93,17 +85,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_path: ./dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_name: dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_content_type: application/${{ matrix.cpack_type }}
-
-
-
-    
-
-
-
-
-
-    
-
