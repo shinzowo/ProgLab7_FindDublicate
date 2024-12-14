@@ -9,7 +9,7 @@ set(Boost_USE_STATIC_RUNTIME ON)
 
 #include_directories(${BOOST_ROOT})
 #find_package(Boost 1.87 REQUIRED COMPONENTS filesystem program_options)
-find_package(Boost 1.87 REQUIRED COMPONENTS filesystem program_options PATHS $ENV{BOOST_ROOT} NO_DEFAULT_PATH)
+find_package(Boost REQUIRED COMPONENTS filesystem program_options PATHS $ENV{BOOST_ROOT} NO_DEFAULT_PATH)
 add_executable(dublicate_boost main.cpp)
 
 if(Boost_FOUND)

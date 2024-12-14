@@ -1,4 +1,4 @@
-name: Build and Release Boost Project 
+name: CMake on multiple platforms
 
 on:
   push:
@@ -12,90 +12,102 @@ jobs:
     permissions: write-all
 
     strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: false
+
+      # Set up a matrix to run the following 3 configurations:
+      # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
+      # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
+      # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
+      #
+      # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
         os: [ubuntu-latest, windows-latest]
         build_type: [Release]
+        c_compiler: [gcc]
         include:
           - os: windows-latest
-            os_short: Win64
+            os_short: win64
             c_compiler: gcc
             cpp_compiler: g++
-            generator: "MinGW Makefiles"
+            generator: -G "MinGW Makefiles"
             cpack_type: zip
           - os: ubuntu-latest
             os_short: Linux
             c_compiler: gcc
             cpp_compiler: g++
             cpack_type: deb
-          
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # Установка зависимостей для Ubuntu
-    - name: Install Boost 1.87.0 (Ubuntu)
+    - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt update
-        sudo apt install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev
-        # Установка конкретной версии Boost 1.87.0 для Ubuntu
-        wget https://boostorg.jfrog.io/artifactory/main/release/1.87.0/source/boost_1_87_0.tar.gz
-        tar -xvzf boost_1_87_0.tar.gz
-        cd boost_1_87_0
-        ./bootstrap.sh
-        sudo ./b2 install
+        sudo apt install -y libsfml-dev libgl1-mesa-dev libx11-dev cmake
+        sudo apt install -y libboost-filesystem-dev libboost-program-options-dev
 
-    # Установка MinGW и Boost для Windows
-    - name: Install Dependencies (Windows)
+
+    - name: Install MinGW and Boost (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        choco install mingw boost --version=1.87.0
-        echo "C:/mingw64/bin" >> $env:GITHUB_PATH
+        # Установка MinGW с помощью Chocolatey
+        choco install mingw
+  
+        # Скачиваем Boost
+        choco install boost
+  
+        # Устанавливаем Boost из исходников
+        set BOOST_DIR=C:/boost
+        mkdir %BOOST_DIR%
+        cd %BOOST_DIR%
+        curl -LO https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2
+        tar -xvjf boost_1_81_0.tar.bz2
+        cd boost_1_81_0
+  
+        # Строим Boost
+        .\bootstrap.bat
+        .\b2 --build-type=complete --toolset=gcc --address-model=64 --with-filesystem --with-program_options variant=release link=static runtime-link=static threading=multi stage
+  
+        # Добавляем пути к Boost в переменные окружения
+        echo "C:/boost/boost_1_81_0" >> $env:GITHUB_PATH
+        echo "C:/boost/boost_1_81_0/stage/lib" >> $env:GITHUB_PATH
+        echo "C:/boost/boost_1_81_0" >> $env:GITHUB_PATH
         gcc --version
         g++ --version
-        echo "BOOST_ROOT=C:/ProgramData/chocolatey/lib/boost/tools" >> $env:GITHUB_ENV
+        boost_version=$(choco list --local-only boost | grep -oP '(?<=boost\sv)(\d+\.\d+\.\d+)')
+        echo "Boost version: $boost_version"
 
-    # Конфигурация CMake
     - name: Configure CMake
       run: |
-        cmake -B build \
-          -G "${{ matrix.generator }}" \
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DBoost_USE_STATIC_LIBS=ON \
-          -DBoost_USE_STATIC_RUNTIME=ON \
-          -DBoost_INCLUDE_DIR=${{ matrix.os == 'ubuntu-latest' && '/usr/include/boost' || 'C:/ProgramData/chocolatey/lib/boost/tools/include' }} \
-          -DBOOST_ROOT=${{ matrix.os == 'ubuntu-latest' && '/usr/include/boost' || 'C:/ProgramData/chocolatey/lib/boost/tools' }} \
-          -DBoost_FILESYSTEM_LIBRARY=Boost::filesystem \
-          -DBoost_PROGRAM_OPTIONS_LIBRARY=Boost::program_options \
-          -S ${{ github.workspace }}
-
-    # Сборка проекта
-    - name: Build Project
+        cmake -B . 
+        ${{ matrix.generator }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DBoost_USE_STATIC_LIBS=ON
+        -DBoost_USE_STATIC_RUNTIME=ON
+        -DCMAKE_PREFIX_PATH="C:/boost/boost_1_81_0"  # Путь к собранному Boost
+        -S ${{ github.workspace }}
+        
+    - name: Build
+      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: |
-        cmake --build build --config ${{ matrix.build_type }}
+        cmake --build . --config ${{ matrix.build_type }}
+        cmake --build . --target package --config ${{ matrix.build_type }}
 
-    # Упаковка проекта
-    - name: Package Project
-      run: |
-        cmake --build build --target package --config ${{ matrix.build_type }}
-
-    # Создание релиза
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ github.run_number }}-${{ matrix.os_short }}
-        release_name: Release v${{ github.run_number }}-${{ matrix.os_short }}
+        tag_name: ${{ github.run_number }}-${{ matrix.os_short }}
+        release_name: Release ${{ github.run_number }}-${{ matrix.os_short }}
         draft: false
         prerelease: false
 
-    # Загрузка артефакта релиза
     - name: Upload Release Asset
       id: upload-release-asset
       uses: actions/upload-release-asset@v1
@@ -103,8 +115,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/${{ matrix.os_short }}.${{ matrix.cpack_type }}
-        asset_name: dublicate_boost-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_path: ./physics-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
+        asset_name: physics-0.1.0-${{ matrix.os_short }}.${{ matrix.cpack_type }}
         asset_content_type: application/${{ matrix.cpack_type }}
 
 
