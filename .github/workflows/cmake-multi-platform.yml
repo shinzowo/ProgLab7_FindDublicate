@@ -54,11 +54,8 @@ jobs:
         # Клонируем репозиторий vcpkg
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
-        # Запуск bootstrap-скрипта для установки vcpkg
-        ./bootstrap-vcpkg.sh
-        # Устанавливаем Boost с параметром для статической сборки
-        ./vcpkg install boost-filesystem boost-program-options:x64-windows-static
-        # Добавляем vcpkg в PATH для использования CMake
+        .\bootstrap-vcpkg.bat
+        .\vcpkg install boost-filesystem boost-program-options:x64-windows-static
         echo "C:/vcpkg/installed/x64-windows-static/include" >> $env:GITHUB_PATH
         echo "C:/vcpkg/installed/x64-windows-static/lib" >> $env:GITHUB_PATH
     # Configure CMake
